@@ -1,0 +1,2 @@
+learnit
+auto-sklearn>=0.6.0

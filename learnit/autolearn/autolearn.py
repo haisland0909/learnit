@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import pkg_resources
 import sys
 from time import time
 
@@ -411,36 +412,42 @@ class AutoLearn(object):
     '''Wrapper class for AutoRegressor and AutoClassifier.'''
     def __init__(self,
                  task='classification',
-                 level=1,
-                 metric='auto',
-                 cv_num=5,
-                 validation_ratio=0.2,
-                 pos_label=1,
-                 n_jobs=1,
-                 verbose=0,
-                 customized_clf_list=None):
+                 plugin_name=None,
+                 **kwargs):
+        self.learner = None
         if task == 'regression':
             self.task = 'regression'
-            self.learner = AutoRegressor(
-                level=level,
-                metric='neg_mean_absolute_error',
-                cv_num=cv_num,
-                validation_ratio=validation_ratio,
-                n_jobs=n_jobs,
-                verbose=verbose)
-
+            for plugin in pkg_resources.iter_entry_points('learnit_autolearn_reg'):
+                if plugin_name == plugin.name:
+                    learner_cls = plugin.load()
+                    self.learner = learner_cls(**kwargs)
+                    break
+            if self.learner is None:
+                self.learner = AutoRegressor(
+                    level=kwargs.get("level", 1),
+                    metric='neg_mean_absolute_error',
+                    cv_num=kwargs.get('cv_num', 5),
+                    validation_ratio=kwargs.get('validation_ratio', 0.2),
+                    n_jobs=kwargs.get('n_jobs', 1),
+                    verbose=kwargs.get('verbose', 0))
         elif task == 'classification':
             self.task = 'classification'
-            self.learner = AutoClassifier(
-                level=level,
-                metric=metric,
-                cv_num=cv_num,
-                task_type='auto',
-                validation_ratio=validation_ratio,
-                pos_label=pos_label,
-                n_jobs=n_jobs,
-                verbose=verbose,
-                customized_clf_list=customized_clf_list)
+            for plugin in pkg_resources.iter_entry_points('learnit_autolearn_clf'):
+                if plugin_name == plugin.name:
+                    learner_cls = plugin.load()
+                    self.learner = learner_cls(**kwargs)
+                    break
+            if self.learner is None:
+                self.learner = AutoClassifier(
+                    level=kwargs.get("level", 1),
+                    metric=kwargs.get('metric', 'auto'),
+                    cv_num=kwargs.get('cv_num', 5),
+                    validation_ratio=kwargs.get('validation_ratio', 0.2),
+                    task_type='auto',
+                    pos_label=kwargs.get('pos_label', 1),
+                    n_jobs=kwargs.get('n_jobs', 1),
+                    verbose=kwargs.get('verbose', 0),
+                    customized_clf_list=kwargs.get('customized_clf_list', None))
 
         else:
             raise ValueError('Wrong task_type = %s' % task)
